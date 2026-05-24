@@ -1,0 +1,6 @@
+{
+  "name": "El-Bendary Pharmacy",
+  "description": "El-Bendary Pharmacy Web E-Commerce Platform",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

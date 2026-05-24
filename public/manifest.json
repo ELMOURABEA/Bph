@@ -1,0 +1,21 @@
+{
+  "name": "صيدليات البندارى",
+  "short_name": "البندارى",
+  "description": "صيدليات البندارى - رعاية صحية متكاملة منذ 1980",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ce1126",
+  "icons": [
+    {
+      "src": "https://play-lh.googleusercontent.com/yL9BI7YVzh_lQN4ghSJv387TvBpbGvACLzqe3FLB8l91on2fwDrOeQVFU-QzZJv-5DVdZ9ixbZTvjEKBSO82rRw=s192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://play-lh.googleusercontent.com/yL9BI7YVzh_lQN4ghSJv387TvBpbGvACLzqe3FLB8l91on2fwDrOeQVFU-QzZJv-5DVdZ9ixbZTvjEKBSO82rRw=s512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
