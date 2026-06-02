@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, FileText, ShoppingBag, MapPin, Search, Heart, Package } from 'lucide-react';
+import { User, FileText, ShoppingBag, MapPin, Search, Heart, Package, XCircle } from 'lucide-react';
 import { Order, User as UserType, Product } from '../types';
 import { OrderProgress } from './OrderProgress';
 import { ProductCard } from './ProductCard';
@@ -11,9 +11,10 @@ interface AccountProps {
   wishlist: Product[];
   onToggleWishlist: (product: Product) => void;
   onAddToCart: (product: Product) => void;
+  onCancelOrder?: (orderId: string) => void;
 }
 
-export const AccountView: React.FC<AccountProps> = ({ user, orders, onLogout, wishlist, onToggleWishlist, onAddToCart }) => {
+export const AccountView: React.FC<AccountProps> = ({ user, orders, onLogout, wishlist, onToggleWishlist, onAddToCart, onCancelOrder }) => {
   const [activeTab, setActiveTab] = useState<'orders' | 'wishlist' | 'addresses'>('orders');
 
   if (!user) return null;
@@ -81,8 +82,16 @@ export const AccountView: React.FC<AccountProps> = ({ user, orders, onLogout, wi
                          {new Date(order.date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                        </div>
                     </div>
-                    <div className="font-black text-primary-600 text-xl mt-2 sm:mt-0">
-                      {order.total.toFixed(2)} <span className="text-sm">ج.م</span>
+                    <div className="font-black text-primary-600 text-xl mt-2 sm:mt-0 flex flex-col items-end gap-2">
+                      <span>{order.total.toFixed(2)} <span className="text-sm">ج.م</span></span>
+                      {(order.status === 'Pending' || order.status === 'Confirmed') && onCancelOrder && (
+                        <button 
+                          onClick={() => onCancelOrder(order.id)}
+                          className="flex items-center gap-1 text-sm text-red-500 hover:text-red-700 font-bold transition-colors"
+                        >
+                          <XCircle size={16} /> إلغاء الطلب
+                        </button>
+                      )}
                     </div>
                   </div>
                   

@@ -1,10 +1,12 @@
 import React from 'react';
 import { OrderStatus } from '../types';
 import { Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface OrderProgressProps {
   status: OrderStatus;
 }
+
 
 const STEPS: { id: OrderStatus; label: string }[] = [
   { id: 'Pending', label: 'قيد المراجعة' },
@@ -42,8 +44,17 @@ export const OrderProgress: React.FC<OrderProgressProps> = ({ status }) => {
           const isActive = index === currentStepIndex;
           
           return (
-            <div key={step.id} className="flex flex-col items-center">
-              <div 
+            <div key={step.id} className="flex flex-col items-center relative">
+              {isActive && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: [0.2, 0.5, 0.2], scale: [1, 1.5, 1] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute inset-0 bg-primary-200 rounded-full z-0 w-5 h-5"
+                />
+              )}
+              <motion.div 
+                layout
                 className={`w-5 h-5 rounded-full flex items-center justify-center z-10 border-2 transition-colors duration-300 ${
                   isCompleted 
                     ? 'bg-primary-600 border-primary-600 text-white' 
@@ -51,7 +62,7 @@ export const OrderProgress: React.FC<OrderProgressProps> = ({ status }) => {
                 }`}
               >
                 {isCompleted && <Check size={12} strokeWidth={4} />}
-              </div>
+              </motion.div>
               <span className={`text-[10px] sm:text-xs mt-2 font-bold text-center ${
                 isActive ? 'text-primary-600' : isCompleted ? 'text-gray-900' : 'text-gray-400'
               }`}>

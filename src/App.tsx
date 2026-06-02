@@ -34,9 +34,23 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [toast, setToast] = useState<{title: string, message: string} | null>(null);
+  const [dbProducts, setDbProducts] = useState<Product[]>(products);
 
-  // Authentication & State
+  // Authentication & State & Data Fetching
   useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const { supabase } = await import('./lib/supabase');
+        const { data, error } = await supabase.from('products').select('*');
+        if (!error && data) {
+          setDbProducts(data as Product[]);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchProducts();
+    
     // Check local storage for user & wishlist
     const storedUser = localStorage.getItem('elb_user');
     if (storedUser) {
@@ -114,6 +128,12 @@ export default function App() {
     setCurrentTab('home');
   };
 
+  const handleCancelOrder = (orderId: string) => {
+    if (confirm('هل أنت متأكد من إلغاء هذا الطلب؟')) {
+      updateOrderStatus(orderId, 'Cancelled');
+    }
+  };
+
   const handleCheckout = () => {
     if (!currentUser) {
       setCartOpen(false);
@@ -179,7 +199,7 @@ export default function App() {
 
   // Search & Filter
   const filteredProducts = useMemo(() => {
-    return products.filter(product => {
+    return dbProducts.filter(product => {
       if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase()) && !product.category.includes(searchQuery)) {
         return false;
       }
@@ -242,7 +262,7 @@ export default function App() {
                  </div>
                </button>
                
-               <a href="https://elbendarypharmacy.duaya.app/" target="_blank" rel="noopener noreferrer" className="w-full flex justify-between items-center p-4 hover:bg-gray-50 transition border-t border-gray-100">
+               <a href="https://admin.bendaryph.com" target="_blank" rel="noopener noreferrer" className="w-full flex justify-between items-center p-4 hover:bg-gray-50 transition border-t border-gray-100">
                  <div className="flex items-center gap-3">
                    <ShieldCheck size={20} className="text-gray-500" />
                    <span className="font-bold text-gray-900">لوحة تحكم الإدارة</span>
@@ -301,6 +321,7 @@ export default function App() {
           wishlist={wishlist}
           onToggleWishlist={toggleWishlist}
           onAddToCart={addToCart}
+          onCancelOrder={handleCancelOrder}
         />
       ) : (
         <AuthView onLogin={handleLogin} />
@@ -423,6 +444,30 @@ export default function App() {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
         
+        {/* Welcome Video Section */}
+        <div className="w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100 mb-6 bg-black relative">
+          <video 
+            className="w-full h-48 md:h-64 object-cover opacity-90"
+            autoPlay 
+            loop 
+            muted 
+            playsInline
+            src="https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4" 
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
+            <h2 className="text-white text-2xl font-bold mb-2">مرحباً بك في صيدليات البنداري</h2>
+            <p className="text-gray-200">الرعاية الصحية المتكاملة بين يديك</p>
+          </div>
+          {currentUser && currentUser.name.toLowerCase().includes('admin') && (
+            <button 
+              onClick={() => alert(`تغيير الفيديوهات متاح للوحة تحكم الإدارة على الرابط: https://admin.bendaryph.com`)}
+              className="absolute top-4 left-4 bg-white/20 hover:bg-white/40 text-white px-3 py-1.5 rounded-lg text-sm font-bold backdrop-blur-md transition-colors z-20"
+            >
+              إدارة الفيديو (Admin)
+            </button>
+          )}
+        </div>
+
         {/* Quick Links matching app design */}
         <div className="grid grid-cols-3 gap-3 mb-6">
            <button onClick={() => setCurrentTab('search')} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-gray-100">
@@ -449,6 +494,15 @@ export default function App() {
                 التأمين الطبي
              </div>
            </button>
+        </div>
+
+        {/* Main Ad Slot */}
+        <div className="w-full h-24 sm:h-32 bg-gray-100 rounded-xl mb-6 flex items-center justify-center border border-gray-200 overflow-hidden relative group cursor-pointer hover:opacity-95 transition-opacity">
+          <div className="absolute top-2 right-2 bg-black/40 text-white text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur-sm z-10">إعلان</div>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary-600 to-primary-800 flex items-center flex-col justify-center text-white p-4 text-center">
+            <span className="font-bold text-lg mb-1">مساحة إعلانية لشركائنا</span>
+            <span className="text-xs opacity-80">(NEXT_PUBLIC_AD_SLOT_MAIN)</span>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 mb-10">
@@ -494,7 +548,7 @@ export default function App() {
            <button onClick={() => selectCategory('')} className="text-sm font-bold text-secondary-600 hover:text-secondary-700">عرض الكل</button>
         </div>
         <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-          {products.slice(0, 6).map((product) => (
+          {dbProducts.slice(0, 6).map((product) => (
              <div key={product.id} className="shrink-0 w-[240px]">
                <ProductCard 
                  product={product} 
