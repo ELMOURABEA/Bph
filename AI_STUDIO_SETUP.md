@@ -1,86 +1,155 @@
-# AI Studio Setup Guide
+# Google AI Studio Setup & Deployment Guide
 
-This repository is configured for Google AI Studio deployment.
+This repository is configured as a **Google AI Studio project** for deploying an AI-powered pharmacy consultation application (Bpharma - صيدليات البنداري).
 
-## Prerequisites
+## 📋 Prerequisites
 
-- Google Cloud Account
-- AI Studio access
-- Gemini API key
+- **Google Cloud Account** with AI Studio access
+- **Gemini API Key** from Google AI Studio
+- **GitHub Repository** (already set up)
 
-## Configuration Steps
+## 🚀 Quick Start with AI Studio
 
-### 1. Set Up Environment Variables
+### 1. Connect Repository to AI Studio
 
-Configure the following secrets in AI Studio's Secrets panel:
+1. Go to [Google AI Studio](https://ai.google.dev/aistudio)
+2. Click "Create new project" or "Open from GitHub"
+3. Connect your GitHub account and select this repository (`ELMOURABEA/Bph`)
 
-- **GEMINI_API_KEY**: Your Gemini API key (get from Google AI Studio)
-- **SUPABASE_URL**: Your Supabase project URL (optional, for database features)
-- **SUPABASE_ANON_KEY**: Your Supabase anonymous key (optional)
-- **SUPABASE_SERVICE_ROLE_KEY**: Your Supabase service role key (optional)
+### 2. Configure Environment Secrets
 
-### 2. Local Development
+In AI Studio's **Secrets panel**, add:
 
-Create a `.env` file from `.env.example`:
-```bash
-cp .env.example .env
+| Secret Name | Description | Where to Get |
+|---|---|---|
+| `GEMINI_API_KEY` | Gemini API Key for AI consultations | [Google AI Studio - API Keys](https://ai.google.dev/aistudio) |
+| `APP_URL` | Auto-filled by AI Studio at runtime | N/A (provided by AI Studio) |
+| `SUPABASE_URL` | Your Supabase project URL (optional) | [Supabase Dashboard](https://app.supabase.com) |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key (optional) | [Supabase Dashboard](https://app.supabase.com) |
+
+### 3. Deploy
+
+AI Studio handles deployment automatically:
+
+1. **Code Changes**: Push to the `main` branch
+2. **Auto Build**: AI Studio detects changes and triggers builds
+3. **Cloud Run Deployment**: Deployed to Google Cloud Run
+4. **Live URL**: Your app is available at the service URL provided
+
+## 📁 Project Structure
+
+```
+Bph/
+├── src/                      # React frontend components
+├── server.ts                 # Express.js backend server
+├── vite.config.ts           # Vite build configuration
+├── package.json             # Dependencies
+├── .env.example             # Environment variable template
+├── .github/
+│   └── workflows/
+│       ├── ai-studio-ci.yml       # CI/CD pipeline
+│       └── (datadog removed)       # Datadog workflow removed
+└── public/                  # Static assets
 ```
 
-Add your actual API keys to `.env`.
+## 🔧 Local Development
 
-### 3. Install Dependencies
-
+### Install Dependencies
 ```bash
 npm install
 ```
 
-### 4. Run Development Server
-
+### Start Development Server
 ```bash
 npm run dev
 ```
 
-The server will start on `http://localhost:3000`
+The development server will start on `http://localhost:3000`
 
-## Project Structure
+### Build for Production
+```bash
+npm run build
+npm run start
+```
 
-- **src/**: React frontend components
-- **server.ts**: Express backend server with Gemini API integration
-- **public/**: Static assets
-- **api/**: API route handlers (if applicable)
+### Run Linter
+```bash
+npm run lint
+```
 
-## Deployment
+## 📦 Key Dependencies
 
-AI Studio handles deployment automatically:
+| Package | Purpose |
+|---|---|
+| `@google/genai` | Gemini AI API integration |
+| `@supabase/supabase-js` | Database (optional) |
+| `express` | Backend server |
+| `react` | Frontend framework |
+| `vite` | Build tool & dev server |
+| `tailwindcss` | Styling |
+| `vite-plugin-pwa` | Progressive Web App support |
 
-1. Push code to your GitHub repository
-2. AI Studio detects changes
-3. Automatic build and deployment to Cloud Run
-4. Service URL provided by AI Studio
+## 🌐 Features
 
-## Features
+✅ **AI Pharmacist Chat**: Powered by Gemini API  
+✅ **Responsive Design**: Mobile-first with Tailwind CSS  
+✅ **PWA Support**: Works offline with service workers  
+✅ **Database Ready**: Optional Supabase integration  
+✅ **Production Deployment**: Cloud Run support  
 
-- **AI Pharmacist Chat**: Integration with Gemini API for pharmaceutical consultations
-- **Supabase Database**: Optional database integration for user data
-- **PWA Support**: Progressive Web App capabilities for offline functionality
-- **Responsive Design**: Mobile-first design with Tailwind CSS
+## 🔐 Security Notes
 
-## Support
+- ✅ API keys are managed through AI Studio's Secrets panel (never committed to repo)
+- ✅ `.env.example` shows template only, actual keys are injected at runtime
+- ✅ All secrets are encrypted in AI Studio
+- ✅ No Datadog monitoring (removed for simplicity)
 
-For issues with:
-- **Gemini API**: Check [Google AI Studio Documentation](https://ai.google.dev/docs)
-- **Supabase**: Visit [Supabase Docs](https://supabase.com/docs)
-- **Deployment**: Refer to AI Studio documentation
+## 🛠️ Troubleshooting
 
-## Removing Datadog
+### Port Already in Use
+```bash
+# Change port in server.ts or kill process on port 3000
+lsof -i :3000
+kill -9 <PID>
+```
 
-The Datadog synthetic testing workflow has been removed. If you were using it:
+### Build Fails
+```bash
+npm clean-install  # Clear node_modules and reinstall
+npm run lint       # Check for TypeScript errors
+```
 
-1. ✅ Removed `.github/workflows/datadog-synthetics.yml`
-2. ✅ Removed Datadog secrets from repository
-3. ✅ Updated environment configuration for AI Studio
+### Environment Variables Not Loading
+- Verify secrets are set in AI Studio's Secrets panel
+- Check that variable names match exactly in code
 
-To remove Datadog secrets from GitHub:
-1. Go to repository Settings
-2. Navigate to Secrets and variables → Actions
-3. Delete any `DD_API_KEY` and `DD_APP_KEY` secrets
+## 📚 Documentation
+
+- [Google AI Studio Docs](https://ai.google.dev/docs)
+- [Gemini API Reference](https://ai.google.dev/api)
+- [Express.js Guide](https://expressjs.com/)
+- [Vite Documentation](https://vitejs.dev/)
+- [Supabase Docs](https://supabase.com/docs) (optional)
+
+## 🚀 Deployment Checklist
+
+- [ ] Repository connected to AI Studio
+- [ ] `GEMINI_API_KEY` secret configured
+- [ ] `npm run build` completes successfully locally
+- [ ] `npm run lint` passes without errors
+- [ ] Pushed to `main` branch
+- [ ] AI Studio shows successful deployment
+- [ ] App loads and AI chat responds
+
+## 📝 Migration Notes
+
+- ✅ **Datadog Removed**: Original monitoring workflow has been removed
+- ✅ **AI Studio Ready**: Project is configured for Google AI Studio deployment
+- ✅ **CI/CD Pipeline**: New `ai-studio-ci.yml` workflow replaces Datadog testing
+- ✅ **Environment Config**: Updated `.env.example` for AI Studio compatibility
+
+---
+
+**Repository**: [ELMOURABEA/Bph](https://github.com/ELMOURABEA/Bph)  
+**Live App**: [bph-two.vercel.app](https://bph-two.vercel.app)  
+**Template**: Based on [AI Studio Repository Template](https://github.com/google-gemini/aistudio-repository-template)
