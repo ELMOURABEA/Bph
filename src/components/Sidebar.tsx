@@ -60,7 +60,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ categories, filters, setFilter
         <div className="flex items-center justify-between mb-8 md:hidden">
           <div className="flex items-center gap-2 text-gray-900 font-bold text-lg">
             <Filter size={20} />
-            <h2>Filters</h2>
+            <h2>تصفية النتائج</h2>
           </div>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 bg-gray-50 rounded-lg">
             <X size={20} />
@@ -68,10 +68,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ categories, filters, setFilter
         </div>
 
         <div className="hidden md:flex items-center justify-between mb-6">
-          <h2 className="font-bold text-gray-900 text-lg">Categories</h2>
+          <h2 className="font-bold text-gray-900 text-lg">الأقسام والفئات</h2>
           {(filters.categories.length > 0 || filters.prescriptionOnly !== null) && (
-            <button onClick={clearFilters} className="text-xs font-semibold text-emerald-600 hover:text-emerald-700">
-              Clear All
+            <button onClick={clearFilters} className="text-xs font-semibold text-[#CE1126] hover:text-red-700">
+              مسح التصفية
             </button>
           )}
         </div>
@@ -86,17 +86,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ categories, filters, setFilter
                 onClick={() => handleCategoryToggle(category.name)}
                 className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${
                   isSelected 
-                    ? 'bg-emerald-50 text-emerald-700 font-medium' 
+                    ? 'bg-red-50 text-red-950 font-extrabold border-l-4 border-[#CE1126]' 
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`${isSelected ? 'text-emerald-600' : 'text-gray-400'}`}>
+                  <div className={`${isSelected ? 'text-[#CE1126]' : 'text-gray-400'}`}>
                     {iconMap[category.icon] || <span className="w-4 h-4" />}
                   </div>
                   <span className="text-sm">{category.name}</span>
                 </div>
-                {/* Visual indicator of selection isn't strictly necessary since background changes, but a tick could go here */}
               </button>
             );
           })}
@@ -104,37 +103,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ categories, filters, setFilter
 
         {/* Type Filter */}
         <div className="mb-8">
-          <h3 className="font-bold text-gray-900 mb-4 px-2">Access Type</h3>
+          <h3 className="font-bold text-gray-900 mb-4 px-2">شروط صرف وتوافر المنتجات</h3>
           <div className="space-y-2 px-2">
             <label className="flex items-center gap-3 cursor-pointer group">
               <input 
                 type="radio" 
                 name="prescription"
-                className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                className="w-4 h-4 text-[#CE1126] border-gray-300 focus:ring-red-500"
                 checked={filters.prescriptionOnly === null}
                 onChange={() => handlePrescriptionToggle(null)}
               />
-              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">All Products</span>
+              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors font-bold">كل المنتجات والمعروضات</span>
             </label>
             <label className="flex items-center gap-3 cursor-pointer group">
               <input 
                 type="radio" 
                 name="prescription"
-                className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                className="w-4 h-4 text-[#CE1126] border-gray-300 focus:ring-red-500"
                 checked={filters.prescriptionOnly === false}
                 onChange={() => handlePrescriptionToggle(false)}
               />
-              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">Over The Counter (OTC)</span>
+              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors font-bold">منتجات عناية وصحة عامة (بدون روشتة)</span>
             </label>
             <label className="flex items-center gap-3 cursor-pointer group">
               <input 
                 type="radio" 
                 name="prescription"
-                className="w-4 h-4 text-emerald-600 border-gray-300 focus:ring-emerald-500"
+                className="w-4 h-4 text-[#CE1126] border-gray-300 focus:ring-red-500"
                 checked={filters.prescriptionOnly === true}
                 onChange={() => handlePrescriptionToggle(true)}
               />
-              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">Prescription Required</span>
+              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors font-bold">أدوية تتطلب وصفة طبية (روشتة)</span>
             </label>
           </div>
         </div>

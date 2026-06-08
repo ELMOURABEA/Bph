@@ -11,13 +11,16 @@ import { AuthView } from './components/AuthView';
 import { AccountView } from './components/AccountView';
 import { AIChat } from './components/AIChat';
 import { BottomNav } from './components/BottomNav';
+import { OrderTrackingView } from './components/OrderTrackingView';
+import { BranchLocatorView } from './components/BranchLocatorView';
 import { categories, products, mockOrders } from './data';
 import { FilterState, CartItem, Product, User, Order, OrderStatus } from './types';
-import { Stethoscope, FileSignature, ShieldCheck, Phone, MessageCircle, Search, LogOut, Heart, ListOrdered, Facebook, Smartphone } from 'lucide-react';
-import { OrderProgress } from './components/OrderProgress';
+import { Stethoscope, FileSignature, ShieldCheck, Phone, MessageCircle, Search, LogOut, Heart, ListOrdered, Facebook, Smartphone, PackageSearch } from 'lucide-react';
+import { PrescriptionUploadView } from './components/PrescriptionUploadView';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState('home');
+  const [activeBanner, setActiveBanner] = useState(0);
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isCartOpen, setCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,13 +39,28 @@ export default function App() {
   const [toast, setToast] = useState<{title: string, message: string} | null>(null);
   const [dbProducts, setDbProducts] = useState<Product[]>(products);
 
+  const [secondsLeft, setSecondsLeft] = useState(32400); // 9 hours
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSecondsLeft(prev => (prev > 0 ? prev - 1 : 32400));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTime = (totalSeconds: number) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${hrs.toString().padStart(2, '0')} : ${mins.toString().padStart(2, '0')} : ${secs.toString().padStart(2, '0')}`;
+  };
+
   // Authentication & State & Data Fetching
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         const { supabase } = await import('./lib/supabase');
         const { data, error } = await supabase.from('products').select('*');
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
           setDbProducts(data as Product[]);
         }
       } catch (err) {
@@ -51,11 +69,35 @@ export default function App() {
     };
     fetchProducts();
     
-    // Check local storage for user & wishlist
-    const storedUser = localStorage.getItem('elb_user');
-    if (storedUser) {
-      try { setCurrentUser(JSON.parse(storedUser)); } catch(e) {}
-    }
+    // Auth Listener
+    import('./lib/supabase').then(({ supabase }) => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) {
+          setCurrentUser({
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || session.user.email || 'مستخدم',
+            phone: session.user.phone || '',
+            addresses: []
+          });
+        }
+      });
+
+      supabase.auth.onAuthStateChange((_event, session) => {
+        if (session?.user) {
+          setCurrentUser({
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || session.user.email || 'مستخدم',
+            phone: session.user.phone || '',
+            addresses: []
+          });
+          setCurrentTab('home');
+        } else {
+          setCurrentUser(null);
+        }
+      });
+    });
+
+    // Check local storage for wishlist
     const storedWishlist = localStorage.getItem('elb_wishlist');
     if (storedWishlist) {
       try { setWishlist(JSON.parse(storedWishlist)); } catch(e) {}
@@ -115,16 +157,19 @@ export default function App() {
     }
   };
 
-  const handleLogin = (phone: string, name: string) => {
-    const user: User = { id: 'U-' + Date.now(), phone, name, addresses: [] };
-    setCurrentUser(user);
-    localStorage.setItem('elb_user', JSON.stringify(user));
+  const handleLogin = (email: string, name: string) => {
+    // Current user state is managed by the supabase auth listener.
+    // Setting a temporary state just in case
+    if (!currentUser) {
+      setCurrentUser({ id: 'U-' + Date.now(), phone: '', name, addresses: [] });
+    }
     setCurrentTab('home');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const { supabase } = await import('./lib/supabase');
+    await supabase.auth.signOut();
     setCurrentUser(null);
-    localStorage.removeItem('elb_user');
     setCurrentTab('home');
   };
 
@@ -212,6 +257,12 @@ export default function App() {
 
   const selectCategory = (categoryName: string) => {
     setFilters({ categories: [categoryName], brands: [], priceRange: [0, 5000], prescriptionOnly: null });
+    setSearchQuery('');
+    setCurrentTab('search');
+  };
+
+  const selectBrand = (brandName: string) => {
+    setFilters({ categories: [], brands: [brandName], priceRange: [0, 5000], prescriptionOnly: null });
     setSearchQuery('');
     setCurrentTab('search');
   };
@@ -330,30 +381,25 @@ export default function App() {
 
     if (currentTab === 'prescription') {
       return (
-        <div className="max-w-2xl mx-auto py-12 px-4 text-center">
-           <div className="w-24 h-24 bg-primary-100 text-primary-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <FileSignature size={48} />
-           </div>
-           <h2 className="text-2xl font-bold text-gray-900 mb-4">ارسال روشتة</h2>
-           <p className="text-gray-600 mb-8">قم بتصوير الروشتة أو المنتج وارسالها لنا، وسنقوم بتوصيل طلبك في أسرع وقت.</p>
-           
-           <div className="grid grid-cols-2 gap-4">
-              <button className="bg-primary-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-primary-700 transition">
-                <span>كاميرا</span>
-              </button>
-              <button className="bg-primary-600 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 hover:bg-primary-700 transition">
-                <span>معرض الصور</span>
-              </button>
-           </div>
-           
-           <div className="mt-8 pt-8 border-t border-gray-200">
-             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 text-gray-500 font-medium">
-               يمكنك كتابة طلبك هنا<br/>
-               مثال: علبة بنادول + بامبرز مقاس 5
-             </div>
-             <button className="w-full mt-4 bg-primary-600 text-white font-bold py-4 rounded-xl hover:bg-primary-700">التالي</button>
-           </div>
-        </div>
+        <PrescriptionUploadView 
+          onBack={() => setCurrentTab('home')} 
+          user={currentUser} 
+        />
+      );
+    }
+
+    if (currentTab === 'ordertracking') {
+      return (
+        <OrderTrackingView 
+          orders={orders} 
+          onBack={() => setCurrentTab('home')} 
+        />
+      );
+    }
+
+    if (currentTab === 'branches') {
+      return (
+        <BranchLocatorView />
       );
     }
 
@@ -441,131 +487,364 @@ export default function App() {
     }
 
     // Default Home View
+    const premiumSlides = [
+      {
+        title: "خصومات الصيف على مستحضرات التجميل والجمال العالمية",
+        subtitle: "وفر حتى 25% على براندات العناية الرائدة كـ Vichy و La Roche-Posay",
+        category: "العناية بالبشرة",
+        image: "https://images.unsplash.com/photo-1612817288484-6f916006741a?w=1200&q=80",
+        accent: "من خبراء باريس إليكِ",
+        buttonText: "تسوقي منتجات التجميل"
+      },
+      {
+        title: "مكملات الفيتامينات والنشاط اليومي المتكامل",
+        subtitle: "اشترِ قطعة واحصل على الثانية مجاناً (1+1) من منتجات سنتروم الشاملة باللوتين",
+        category: "الفيتامينات",
+        image: "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=1200&q=80",
+        accent: "مكملات أصلية وموثقة",
+        buttonText: "اكتشف الفيتامينات"
+      },
+      {
+        title: "رعاية ممتازة لبشرة طفلكِ الحساسة",
+        subtitle: "حماية فائقة ونعومة حريرية مع عروض حصرية على عبوات حفاضات بامبرز الفاخرة",
+        category: "الأم والطفل",
+        image: "https://images.unsplash.com/photo-1519689680058-324335c77eba?w=1200&q=80",
+        accent: "راحة وأمان طوال اليوم",
+        buttonText: "تصفح مستلزمات طفلكِ"
+      }
+    ];
+
+    const staticBrands = [
+      { name: 'Vichy', logo: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=150&q=80', tagline: 'للبشرة الحساسة' },
+      { name: 'La Roche-Posay', logo: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=150&q=80', tagline: 'رعاية جلدية فرنسية' },
+      { name: 'Cerave', logo: 'https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=150&q=80', tagline: 'لتقوية حاجز البشرة' },
+      { name: 'Centrum', logo: 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=150&q=80', tagline: 'دعم الصحة العام' },
+      { name: 'Bioderma', logo: 'https://images.unsplash.com/photo-1616683693504-3ea7e9ad6fec?w=150&q=80', tagline: 'مزيل المكياج والنقاء' },
+      { name: 'Pampers', logo: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?w=150&q=80', tagline: 'حفاضات رعاية فائقة' },
+      { name: 'Omron', logo: 'https://images.unsplash.com/photo-1581594549595-35f6edc7b762?w=150&q=80', tagline: 'أجهزة قياس الضغط' }
+    ];
+
+    const seasonalTips = [
+      {
+        id: 't1',
+        title: "نظام الوقاية من أشعة وصدمات شمس الصيف الحارة",
+        desc: "التعرض المستمر للأشعة الفوق بنفسجية يعرضكِ لظهور مبكر للتجاعيد وبقع الجفاف. ينصح أطباؤنا بالتالي:",
+        recommendation: "تركيبة سيروم حمض الهيالورونيك من Vichy لتخزين الترطيب + واقي شمس لاروش بوزيه بعامل حماية +50.",
+        itemIds: ['p1', 'p2']
+      },
+      {
+        id: 't2',
+        title: "كيف تحارب الكسل والبهتان وتجدد مستويات الطاقة طوال الصيام أو العمل الشاق؟",
+        desc: "يحتاج الجسم لتعويض مستمر للمغنيسيوم، وفيتامينات ب المركبة، ومضادات الأكسدة مثل اللوتين للحفاظ على صحة وتركيز دائم.",
+        recommendation: "كبسولات Centrum الشاملة مرة واحدة يومياً بعد وجبة الإفطار مع شرب كميات غنية من المياه.",
+        itemIds: ['p4']
+      }
+    ];
+
+    const triggerQuickRoutineBuy = (itemIds: string[]) => {
+      itemIds.forEach(id => {
+        const prod = dbProducts.find(p => p.id === id);
+        if (prod) {
+          addToCart(prod);
+        }
+      });
+      setToast({
+        title: "تم إضافة المجموعة للقرطاس!",
+        message: "تم إضافة مستحضرات المجموعة المقترحة لسلة المشتريات بنجاح لتبدأ في روتين صحي متكامل."
+      });
+      setTimeout(() => setToast(null), 3500);
+    };
+
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24 md:pb-8 space-y-12">
         
-        {/* Welcome Video Section */}
-        <div className="w-full rounded-2xl overflow-hidden shadow-sm border border-gray-100 mb-6 bg-black relative">
-          <video 
-            className="w-full h-48 md:h-64 object-cover opacity-90"
-            autoPlay 
-            loop 
-            muted 
-            playsInline
-            src="https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4" 
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex flex-col justify-end p-6">
-            <h2 className="text-white text-2xl font-bold mb-2">مرحباً بك في صيدليات البنداري</h2>
-            <p className="text-gray-200">الرعاية الصحية المتكاملة بين يديك</p>
+        {/* Dynamic & Premium Banner Slider */}
+        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-red-950 via-neutral-900 to-black border border-red-850/20 text-white shadow-xl min-h-[340px] md:min-h-[400px] flex items-center">
+          {/* Active slide image */}
+          <div className="absolute inset-y-0 left-0 w-full md:w-1/2 h-full opacity-35 md:opacity-85 z-0 md:ml-auto">
+            <img 
+              src={premiumSlides[activeBanner].image} 
+              alt="Promo banner" 
+              className="w-full h-full object-cover mix-blend-luminosity transform scale-105 transition-transform duration-1000" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent"></div>
           </div>
-          {currentUser && currentUser.name.toLowerCase().includes('admin') && (
-            <button 
-              onClick={() => alert(`تغيير الفيديوهات متاح للوحة تحكم الإدارة على الرابط: https://admin.bendaryph.com`)}
-              className="absolute top-4 left-4 bg-white/20 hover:bg-white/40 text-white px-3 py-1.5 rounded-lg text-sm font-bold backdrop-blur-md transition-colors z-20"
-            >
-              إدارة الفيديو (Admin)
-            </button>
-          )}
-        </div>
 
-        {/* Quick Links matching app design */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-           <button onClick={() => setCurrentTab('search')} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-gray-100">
-             <div className="py-4 flex items-center justify-center text-gray-800">
-                <Search size={32} strokeWidth={2.5} />
-             </div>
-             <div className="bg-primary-600 text-white w-full text-center py-2 font-bold text-sm">
-                تصفح الاقسام
-             </div>
-           </button>
-           <button onClick={() => setCurrentTab('prescription')} className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-gray-100">
-             <div className="py-4 flex items-center justify-center text-gray-800">
-                <FileSignature size={32} strokeWidth={2.5} />
-             </div>
-             <div className="bg-primary-600 text-white w-full text-center py-2 font-bold text-sm">
-                الروشتة
-             </div>
-           </button>
-           <button className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all group border border-gray-100">
-             <div className="py-4 flex items-center justify-center text-gray-800">
-                <ShieldCheck size={32} strokeWidth={2.5} />
-             </div>
-             <div className="bg-primary-600 text-white w-full text-center py-2 font-bold text-sm">
-                التأمين الطبي
-             </div>
-           </button>
-        </div>
+          {/* Banner content */}
+          <div className="relative z-10 w-full md:w-2/3 p-6 sm:p-12 flex flex-col justify-center text-right">
+            <span className="bg-[#CE1126] text-white text-[10px] md:text-xs font-black uppercase tracking-widest px-3 py-1.5 rounded-full inline-block max-w-max mb-4 shadow-sm animate-pulse">
+              {premiumSlides[activeBanner].accent}
+            </span>
+            <h1 className="text-3xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-200 tracking-tight leading-snug drop-shadow-md">
+              {premiumSlides[activeBanner].title}
+            </h1>
+            <p className="text-sm md:text-lg text-gray-200 mt-4 max-w-xl font-medium leading-relaxed">
+              {premiumSlides[activeBanner].subtitle}
+            </p>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <button 
+                onClick={() => {
+                  selectCategory(premiumSlides[activeBanner].category);
+                }}
+                className="bg-[#CE1126] text-white hover:bg-red-750 font-extrabold px-8 py-3.5 rounded-2xl shadow-lg shadow-red-900/20 transition-all duration-300 transform hover:scale-[1.02] cursor-pointer"
+              >
+                {premiumSlides[activeBanner].buttonText}
+              </button>
+              
+              <button 
+                onClick={() => setCurrentTab('prescription')}
+                className="bg-white/10 text-white border border-white/20 hover:bg-white/20 font-bold px-6 py-3.5 rounded-2xl backdrop-blur-md transition cursor-pointer"
+              >
+                صرف الروشتة الطبية
+              </button>
+            </div>
+          </div>
 
-        {/* Main Ad Slot */}
-        <div className="w-full h-24 sm:h-32 bg-gray-100 rounded-xl mb-6 flex items-center justify-center border border-gray-200 overflow-hidden relative group cursor-pointer hover:opacity-95 transition-opacity">
-          <div className="absolute top-2 right-2 bg-black/40 text-white text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur-sm z-10">إعلان</div>
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-600 to-primary-800 flex items-center flex-col justify-center text-white p-4 text-center">
-            <span className="font-bold text-lg mb-1">مساحة إعلانية لشركائنا</span>
-            <span className="text-xs opacity-80">(NEXT_PUBLIC_AD_SLOT_MAIN)</span>
+          {/* Sliding indicators/bullets */}
+          <div className="absolute bottom-6 right-6 md:right-12 flex items-center gap-2 z-10">
+            {premiumSlides.map((_, i) => (
+              <button 
+                key={i} 
+                onClick={() => setActiveBanner(i)}
+                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${activeBanner === i ? 'w-8 bg-[#CE1126]' : 'bg-white/40 hover:bg-white/'}`}
+              />
+            ))}
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-10">
-           <button className="bg-white border border-primary-600 rounded-xl py-3 px-4 flex items-center justify-between hover:bg-primary-50 transition-colors shadow-sm">
-              <span className="font-bold text-primary-700 text-lg">العروض الخاصة</span>
-              <span className="text-primary-600 text-2xl font-black rotate-[-15deg]">%</span>
-           </button>
-           <button onClick={() => setCurrentTab('aichat')} className="bg-white border border-primary-600 rounded-xl py-3 px-4 flex items-center justify-between hover:bg-primary-50 transition-colors shadow-sm">
-              <span className="font-bold text-primary-700 text-lg">استشير صيدلي</span>
-              <Stethoscope size={24} className="text-primary-600" />
-           </button>
-        </div>
+        {/* Triple Action Dashboard Row (Order Tracking, VIP Club, Hot Offer) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Action A: Order tracking banner - 4 columns */}
+          <div 
+            onClick={() => setCurrentTab('ordertracking')}
+            className="lg:col-span-4 bg-white rounded-2xl p-5 shadow-md border border-gray-100 flex flex-col justify-between cursor-pointer hover:shadow-lg hover:border-red-600/20 transition-all group duration-300"
+          >
+             <div className="space-y-4">
+                <div className="w-12 h-12 bg-red-50 text-[#CE1126] rounded-2xl flex items-center justify-center border border-red-100 shadow-inner group-hover:-rotate-3 transition-transform">
+                   <PackageSearch size={24} />
+                </div>
+                <div>
+                   <h3 className="font-extrabold text-gray-950 text-base">تتبع طلبيات البنداري</h3>
+                   <p className="text-gray-400 text-xs mt-1 leading-relaxed font-medium">أدخل رقم الشحنة أو رقم تتبع الطلب الخاص بك لمعرفة موعد وتفاصيل التوصيل فورا.</p>
+                </div>
+             </div>
+             <div className="mt-6 flex items-center justify-between text-xs font-extrabold text-[#CE1126] border-t border-gray-150 pt-3 group-hover:underline">
+                <span>تحقق من الشحن</span>
+                <span className="bg-red-50 px-2 py-1 rounded">←</span>
+             </div>
+          </div>
 
-        {/* Categories Horizontal Scroll */}
-        <div className="flex items-center justify-between mb-4">
-           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-               <span className="w-1.5 h-6 bg-secondary-600 block rounded-full"></span>
-               تسوق بالأقسام
-           </h2>
-           <button onClick={() => setCurrentTab('search')} className="text-sm font-bold text-primary-600 hover:text-primary-700">عرض الكل</button>
-        </div>
-        <div className="flex overflow-x-auto gap-4 pb-4 mb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-          {categories.map((category) => (
-            <button 
-              key={category.id}
-              onClick={() => selectCategory(category.name)}
-              className="group relative bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-all flex border-b-4 border-b-transparent hover:border-b-primary-500 shrink-0 w-[110px] flex-col items-center p-3"
-            >
-              <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-50 mb-3 border-2 border-gray-100 group-hover:border-primary-100 transition-colors">
-                 <img src={category.image} alt={category.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 mix-blend-multiply" />
+          {/* Action B: VIP Loyalty Club Card Graphic - 5 columns */}
+          <div className="lg:col-span-5 bg-gradient-to-br from-black via-zinc-900 to-[#CE1126] text-white rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between border border-red-950/30">
+            {/* Background design elements */}
+            <div className="absolute top-0 left-0 w-24 h-24 bg-white/5 rounded-full blur-xl -translate-x-4 -translate-y-4"></div>
+            <div className="absolute top-1/2 left-1/3 w-32 h-32 bg-red-500/5 rounded-full blur-2xl"></div>
+            
+            <div className="flex items-start justify-between z-10">
+              <div>
+                <span className="text-[10px] bg-white/10 border border-white/10 text-red-100 px-2.5 py-1 rounded-full font-black tracking-widest uppercase">نادي المكافآت VIP</span>
+                <h3 className="text-xl font-black mt-2 leading-none">بطاقة البنداري الرقمية</h3>
               </div>
-              <span className="text-gray-800 font-bold text-[12px] text-center leading-tight">{category.name}</span>
+              <svg viewBox="0 0 24 24" fill="none" className="w-8 h-8 text-white" stroke="currentColor" strokeWidth="2">
+                <rect x="2" y="5" width="20" height="14" rx="2" />
+                <line x1="2" y1="10" x2="22" y2="10" />
+              </svg>
+            </div>
+
+            {/* Simulated Points Balance */}
+            <div className="my-6 z-10">
+              <div className="flex justify-between items-end mb-2">
+                <div>
+                  <p className="text-[10px] text-gray-200/75 font-semibold leading-none">مجموع نقاطك</p>
+                  <span className="text-3xl font-black text-white">550 <span className="text-sm text-red-400 font-black">نقطة</span></span>
+                </div>
+                <span className="text-xs text-red-400 font-bold">خصم 50 ج.م متاح</span>
+              </div>
+              
+              {/* Rewards path bar */}
+              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden border border-white/5">
+                <div className="h-full bg-gradient-to-r from-red-600 to-red-400 rounded-full" style={{ width: '75%' }}></div>
+              </div>
+              <div className="flex justify-between text-[9px] text-red-200 mt-1.5 font-bold">
+                <span>تفعيل كوبون بقيمة 100 ج.م</span>
+                <span>المستوى التالي: 1000 نقطة</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                if (currentUser) {
+                  setToast({ title: "نقاط مكافآتك مفعلة!", message: "يتم تحصيل النقاط تلقائياً على حسابك الشخصي مع كل طلب تقوم به." });
+                  setTimeout(() => setToast(null), 3000);
+                } else {
+                  setCurrentTab('account');
+                }
+              }}
+              className="w-full bg-[#CE1126] hover:bg-red-700 text-white font-black py-2.5 rounded-xl text-xs z-10 transition shadow shadow-red-950/20"
+            >
+              {currentUser ? "تفاصيل حساب المكافآت" : "انضم الآن لمكافآت البنداري واكسب 100 نقطة مجاناً"}
             </button>
-          ))}
+          </div>
+
+          {/* Action C: Limited Offer Countdown - 3 columns */}
+          <div className="lg:col-span-3 bg-white rounded-3xl p-5 shadow-md border border-red-500/20 flex flex-col justify-between relative overflow-hidden">
+            {/* Visual indicator tag */}
+            <div className="absolute top-0 left-0 bg-[#CE1126] text-white text-[9px] font-black px-4 py-1.5 rounded-br-2xl uppercase tracking-wider font-sans">
+              عرض خاص
+            </div>
+
+            <div className="mt-4">
+              <h4 className="text-xs text-gray-400 font-bold">ينتهي العرض الخاص في:</h4>
+              <div className="font-mono text-xl font-extrabold text-[#CE1126] mt-2 bg-red-50 rounded-xl p-3 border border-red-150 text-center tracking-widest whitespace-nowrap">
+                {formatTime(secondsLeft)}
+              </div>
+            </div>
+
+            <div className="my-4 border-t border-gray-150 pt-3">
+              <span className="text-[10px] text-red-600 font-extrabold block">منتج العرض المحدود لهذا الأسبوع</span>
+              <h4 className="font-extrabold text-black text-xs mt-1 leading-snug line-clamp-2">فيشي سيروم مرطب ومقوي للبشرة (50 مل)</h4>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-black font-black text-sm">680 <span className="text-[10px] text-gray-500 font-bold">ج.م</span></span>
+                <span className="text-gray-400 line-through text-xs font-medium">850 ج.م</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                const vichyProd = dbProducts.find(p => p.id === 'p1');
+                if (vichyProd) {
+                  addToCart(vichyProd);
+                  setToast({ title: 'تم تفعيل العرض!', message: 'تم إضافة سيروم فيشي بخصم 170 ج.م لسلتك بنجاح.' });
+                  setTimeout(() => setToast(null), 3000);
+                }
+              }}
+              className="w-full bg-[#CE1126] hover:bg-black text-white font-bold py-2.5 rounded-xl text-xs transition"
+            >
+              شراء العرض الآن
+            </button>
+          </div>
         </div>
 
-        {/* Recommended Products Horizontal Scroll */}
-        <div className="flex items-center justify-between mb-4 mt-8">
-           <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-               <span className="w-1.5 h-6 bg-primary-600 block rounded-full"></span>
-               منتجات مقترحة
-           </h2>
-           <button onClick={() => selectCategory('')} className="text-sm font-bold text-secondary-600 hover:text-secondary-700">عرض الكل</button>
+        {/* Global Premium Brands Locator Row (تسوق بأفخر البراندات العالمية) */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+             <h2 className="text-xl font-extrabold text-gray-950 flex items-center gap-2">
+                 <span className="w-1.5 h-6 bg-[#CE1126] block rounded-full"></span>
+                 تسوق بأقوى الماركات الفرنسية والعالمية
+             </h2>
+             <span className="text-xs text-gray-400 font-bold hidden sm:inline">منتجات أصلية معتمدة مع ضمان التخزين الصحي</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
+            {staticBrands.map((brand, i) => (
+              <div 
+                key={i}
+                onClick={() => selectBrand(brand.name)}
+                className="bg-white rounded-2xl p-4 border border-gray-150 hover:border-[#CE1126] hover:shadow-md transition-all duration-300 text-center cursor-pointer group flex flex-col justify-between h-[150px]"
+              >
+                <div className="w-full h-14 overflow-hidden rounded-lg bg-gray-50 flex items-center justify-center p-2">
+                   <span className="text-base font-black text-slate-800 tracking-wider group-hover:text-[#CE1126] transition-colors">{brand.name}</span>
+                </div>
+                <div className="mt-2 text-right">
+                  <h4 className="font-extrabold text-gray-900 text-[11px] truncate leading-tight">{brand.name}</h4>
+                  <p className="text-[9px] text-[#CE1126] font-black truncate mt-1">{brand.tagline}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-        <div className="flex overflow-x-auto gap-4 pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
-          {dbProducts.slice(0, 6).map((product) => (
-             <div key={product.id} className="shrink-0 w-[240px]">
+
+        {/* Categories Grid Selector */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+             <h2 className="text-xl font-extrabold text-gray-950 flex items-center gap-2">
+                 <span className="w-1.5 h-6 bg-[#CE1126] block rounded-full"></span>
+                 تصفح الفئات الطبية والجمالية
+             </h2>
+             <button onClick={() => setCurrentTab('search')} className="text-xs font-bold text-[#CE1126] hover:underline flex items-center gap-1">عرض جميع المنتجات ←</button>
+          </div>
+
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+            {categories.map((category) => (
+              <button 
+                key={category.id}
+                onClick={() => selectCategory(category.name)}
+                className="group bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-md transition-all duration-300 flex border-b-4 border-b-transparent hover:border-b-[#CE1126] shrink-0 flex-col items-center p-3 cursor-pointer"
+              >
+                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-gray-50 mb-3 border border-gray-100 group-hover:border-red-100 transition-colors">
+                   <img src={category.image} alt={category.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 mix-blend-multiply" />
+                </div>
+                <span className="text-gray-900 font-extrabold text-[12px] text-center leading-tight">{category.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Healthy Lifestyle Editorial Advice Desk (مستشار الطب البديل والحياة الصحية) */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+             <h2 className="text-xl font-extrabold text-gray-950 flex items-center gap-2">
+                 <span className="w-1.5 h-6 bg-[#CE1126] block rounded-full"></span>
+                 المرشد الطبي والروتين المقترح من أطبائنا
+             </h2>
+             <button onClick={() => setCurrentTab('aichat')} className="text-xs bg-red-50 text-[#CE1126] px-3 py-1.5 rounded-lg hover:bg-red-100 transition font-extrabold">المزيد من الاستشارات المجانية</button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {seasonalTips.map((tip) => (
+              <div key={tip.id} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between gap-6 hover:shadow-md transition-shadow">
+                <div className="space-y-3">
+                  <h3 className="font-extrabold text-slate-900 text-sm md:text-base leading-snug">{tip.title}</h3>
+                  <p className="text-xs text-gray-500 md:text-sm font-medium leading-relaxed">{tip.desc}</p>
+                  <div className="bg-red-50/50 rounded-xl p-4 border border-red-100/40 text-xs text-red-950 leading-relaxed font-bold">
+                    <span className="text-[#CE1126] block mb-1">الجرعة أو الروتين اليومي:</span>
+                    {tip.recommendation}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-gray-50 pt-4">
+                  <span className="text-[11px] text-gray-400 font-bold">موصى به بواسطة د. مصطفى البنداري</span>
+                  <button 
+                    onClick={() => triggerQuickRoutineBuy(tip.itemIds)}
+                    className="bg-[#CE1126] hover:bg-black text-white text-xs font-black px-5 py-2.5 rounded-xl transition"
+                  >
+                    شراء الروتين المقترح سلّة واحدة
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Featured Products Showcase Section (منتجاتنا الأكثر طلباً) */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+             <h2 className="text-xl font-extrabold text-gray-950 flex items-center gap-2">
+                 <span className="w-1.5 h-6 bg-[#CE1126] block rounded-full"></span>
+                 الأكثر مبيعاً والمنتجات الشائعة حالياً
+             </h2>
+             <button onClick={() => selectCategory('')} className="text-xs font-black text-[#CE1126] hover:underline">مشاهدة الكل ({dbProducts.length})</button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {dbProducts.slice(0, 4).map((product) => (
                <ProductCard 
+                 key={product.id} 
                  product={product} 
                  onAddToCart={addToCart}
                  isWishlisted={wishlist.some(p => p.id === product.id)}
                  onToggleWishlist={toggleWishlist}
                />
-             </div>
-          ))}
+            ))}
+          </div>
         </div>
-        
+
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans selection:bg-primary-100 selection:text-primary-900" dir="rtl">
+    <div className="min-h-screen bg-white flex flex-col font-sans selection:bg-red-50 selection:text-red-900" dir="rtl">
       <Navbar 
         cartCount={cartCount}
         onCartClick={() => setCartOpen(true)}
@@ -575,11 +854,132 @@ export default function App() {
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         userName={currentUser?.name}
+        onChangeTab={setCurrentTab}
+        wishlistCount={wishlist.length}
       />
 
       <main className="flex-1">
         {renderContent()}
       </main>
+
+      {/* Footer Section */}
+      <footer className="bg-[#111111] text-white border-t border-zinc-800 pt-12 pb-24 md:pb-12 mt-12 font-sans">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-8">
+          
+          {/* Logo and brief intro */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 bg-[#CE1126] rounded-xl flex items-center justify-center border border-red-600/30">
+                <svg viewBox="0 0 24 24" fill="none" className="w-5 h-5 text-white" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M4.5 16.5C4.5 13.5 6 12 9 12h6c3 0 4.5 1.5 4.5 4.5s-1.5 4.5-4.5 4.5H9c-3 0-4.5-1.5-4.5-4.5z" />
+                  <path d="M12 2v10M9 5h6" />
+                </svg>
+              </div>
+              <span className="text-base font-extrabold text-[#CE1126]">صيدليات البندارى</span>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed font-medium">
+              الخيار الأول والموثوق في مصر لتوفير الأدوية والتركيبات الصيدلانية ومستحضرات التجميل العالمية والعناية بالبشرة تحت إشراف نخبة من الصيادلة والأخصائيين.
+            </p>
+            <div className="pt-2">
+              <a 
+                href="https://www.bendaryph.com" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="inline-block bg-[#CE1126] hover:bg-red-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs transition duration-300"
+              >
+                زيارة الموقع الرسمي: www.bendaryph.com
+              </a>
+            </div>
+          </div>
+
+          {/* Quick links */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-black text-gray-100 relative pb-2 after:content-[''] after:absolute after:bottom-0 after:right-0 after:w-8 after:h-0.5 after:bg-[#CE1126]">
+              أقسام وتصفح سريع
+            </h4>
+            <ul className="space-y-2 text-xs font-bold text-gray-400">
+              <li>
+                <button onClick={() => setCurrentTab('home')} className="hover:text-[#CE1126] transition-colors cursor-pointer">
+                  الصفحة الرئيسية للبوابة
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setCurrentTab('search')} className="hover:text-[#CE1126] transition-colors cursor-pointer">
+                  تصفح المنتجات والفئات
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setCurrentTab('prescription')} className="hover:text-[#CE1126] transition-colors cursor-pointer">
+                  صرف الروشتة وتحميل الملفات
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setCurrentTab('ordertracking')} className="hover:text-[#CE1126] transition-colors cursor-pointer">
+                  تتبع طلبيات البنداري أونلاين
+                </button>
+              </li>
+              <li>
+                <button onClick={() => setCurrentTab('branches')} className="hover:text-[#CE1126] transition-colors cursor-pointer">
+                  فروعنا وأوقات العمل
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          {/* Support and contact info */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-black text-gray-100 relative pb-2 after:content-[''] after:absolute after:bottom-0 after:right-0 after:w-8 after:h-0.5 after:bg-[#CE1126]">
+              خدمة العملاء والدعم
+            </h4>
+            <ul className="space-y-3 text-xs font-bold text-gray-400">
+              <li className="flex items-center gap-2">
+                <span className="text-red-500">📞</span>
+                <span>الخط الساخن: <a href="tel:01200400094" className="hover:text-white transition-colors text-gray-100">01200400094</a></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-green-500">💬</span>
+                <span>واتساب مفعّل: <a href="https://wa.me/201200400094" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors text-gray-100">01200400094</a></span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-500">👥</span>
+                <span>فيسبوك: <a href="https://www.facebook.com/share/1LSTcMaR1X/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">صفحة صيدليات البنداري</a></span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Legal / apps */}
+          <div className="space-y-4">
+            <h4 className="text-sm font-black text-gray-100 relative pb-2 after:content-[''] after:absolute after:bottom-0 after:right-0 after:w-8 after:h-0.5 after:bg-[#CE1126]">
+              تطبيقات الهواتف الذكية
+            </h4>
+            <p className="text-xs text-gray-400 leading-relaxed font-medium">
+              حمل تطبيق البنداري للهواتف الذكية للحصول على مزيد من المزايا ومتابعة نقاط مكافآتك الحصرية.
+            </p>
+            <div className="pt-2">
+              <a 
+                href="https://play.google.com/store/apps/details?id=com.bendarypharmacy.duaya" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-white p-2.5 rounded-xl transition duration-300 text-xs w-max border border-zinc-700"
+              >
+                <span>🤖</span>
+                <span className="font-extrabold text-[11px]">تحميل تطبيق الأندرويد للأجهزة الذكية</span>
+              </a>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Bottom copyright line */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12 pt-6 border-t border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-gray-500 font-bold">
+          <span>© 1998 - 2026 جميع الحقوق محفوظة لمجموعة صيدليات البنداري الطبية وموقعها الإلكتروني.</span>
+          <div className="flex items-center gap-4">
+            <a href="https://www.bendaryph.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#CE1126] transition-colors">
+              البوابة الرئيسية: www.bendaryph.com
+            </a>
+          </div>
+        </div>
+      </footer>
 
       {/* Global In-App Toast Notification */}
       {toast && (
@@ -596,7 +996,13 @@ export default function App() {
 
       <BottomNav 
         currentTab={currentTab} 
-        onChangeTab={setCurrentTab} 
+        onChangeTab={(tab) => {
+          if (tab === 'cart') {
+            setCartOpen(true);
+          } else {
+            setCurrentTab(tab);
+          }
+        }} 
         cartCount={cartCount}
       />
 

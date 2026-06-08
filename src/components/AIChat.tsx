@@ -70,7 +70,10 @@ export const AIChat: React.FC<AIChatProps> = ({ onClose }) => {
           </div>
           <div>
             <h2 className="font-bold text-gray-900 leading-tight">الصيدلي الآلي</h2>
-            <p className="text-xs text-secondary-600 font-bold">متصل - يعمل بتقنية الذكاء الاصطناعي</p>
+            <p className="text-[10px] text-gray-500 flex items-center gap-1 mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-[#CE1126] inline-block animate-pulse"></span>
+              متصل - صيدلية البنداري الذكية
+            </p>
           </div>
         </div>
       </div>
